@@ -1,0 +1,6 @@
+interface:
+  display_name: "编码规范"
+  short_description: "制定、审查并落地可执行、可验证、可持续的项目编码规范"
+  default_prompt: "使用 $coding-standards 审查这段代码并给出可执行的规范改进。"
+policy:
+  allow_implicit_invocation: false

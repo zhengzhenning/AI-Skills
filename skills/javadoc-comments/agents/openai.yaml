@@ -1,0 +1,7 @@
+interface:
+  display_name: "Java 中文注释规范"
+  short_description: "按 Java 官方文档惯例编写和审查中文 Java 注释"
+  default_prompt: "使用 $javadoc-comments 为这段 Java 代码补充规范的中文注释。"
+
+policy:
+  allow_implicit_invocation: false

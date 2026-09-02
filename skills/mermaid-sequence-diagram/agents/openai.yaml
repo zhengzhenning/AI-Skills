@@ -1,0 +1,7 @@
+interface:
+  display_name: "Mermaid 时序图"
+  short_description: "仅在明确指定时设计、编写和校验 Mermaid 时序图"
+  default_prompt: "使用 $mermaid-sequence-diagram 将交互流程整理为清晰、可渲染的 Mermaid 时序图"
+
+policy:
+  allow_implicit_invocation: false

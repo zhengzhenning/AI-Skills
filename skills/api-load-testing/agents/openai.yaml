@@ -1,0 +1,7 @@
+interface:
+  display_name: "接口压测"
+  short_description: "仅在明确指定时执行 k6 接口压测、结果归档和通俗分析"
+  default_prompt: "使用 $api-load-testing 执行一次接口压测并保留结果"
+
+policy:
+  allow_implicit_invocation: false

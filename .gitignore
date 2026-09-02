@@ -1,0 +1,7 @@
+.DS_Store
+*.local.json
+*.local.yaml
+*.local.yml
+auth.local.*
+token.*
+results/
