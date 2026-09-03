@@ -1,0 +1,6 @@
+interface:
+  display_name: "测试计划文档编写"
+  short_description: "编写结构化、可执行、可评审的测试计划文档"
+  default_prompt: "使用 $test-plan-writing 编写一份只包含测试用例及其文档内测试结果的测试计划。"
+policy:
+  allow_implicit_invocation: false
