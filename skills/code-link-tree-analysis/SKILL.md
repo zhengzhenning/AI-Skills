@@ -11,16 +11,31 @@ description: 仅在用户明确指定 `$code-link-tree-analysis` 时使用。根
 
 ## 分析流程
 
-1. 先执行只读 Git 检查：`git branch --show-current` 获取分析分支；按用户指定的基线优先，其次读取任务/PR 目标分支，再检查仓库默认分支（如 `origin/HEAD`、`main` 或 `master`）。无法确认时写 `基线分支：待确认`，不得把当前分支的上游跟踪分支自动当成基线。
+1. 先执行只读 Git 检查：`git branch --show-current` 获取分析分支；基线分支按“用户指定 > 任务/PR 目标分支 > 仓库默认分支（如 `origin/HEAD`、`main` 或 `master`）”的优先级确认。无法确认时不得把当前分支的上游跟踪分支自动当成基线，停止分析并输出 `基线分支：待确认`，向用户询问后再继续。
 2. 读取 `AGENTS.md`、模块说明、构建文件和相关测试，确定项目结构和规则。
 3. 用 `rg` 定位入口注册点和实现：路由、Controller/Handler、Proto service、消费者绑定或任务调度。
 4. 沿实际调用逐层阅读实现，保留同步/异步方向、回调、事件、事务、重试和异常映射。
 5. 展开会改变结果的分支：鉴权失败、参数错误、查询为空、权限/归属校验、状态条件、外部成功/失败、超时、降级和重试。
 6. 追踪到数据库/缓存、外部 HTTP/RPC、消息投递或最终响应后收束；公共框架只展开影响业务语义的部分。
-7. 为关键节点记录 `文件路径:行号`。同一方法或共享子链路重复出现时编号并引用，避免循环展开。
+7. 为关键节点记录 `文件路径:行号`，统一写入“关键证据”段，不写进链路树。同一方法或共享子链路重复出现时用 `[S1]`、`[S2]` 编号折叠引用，避免循环展开。
 8. 无法确认的实现、动态代理、生成代码或外部系统写成“待确认”，不得按经验补全。
 
-跨服务或跨模块时，必须在核心方法名前加模块前缀，格式为 `模块名::类名.方法名`；跨模块调用节点同时写明 `调用方模块 → 被调用方模块`。同一模块内部的方法可省略前缀。模块名以仓库实际模块名、服务名或 Proto 包名为准，无法确认时使用 `[模块待确认]`。
+跨服务或跨模块的核心方法节点必须带模块前缀，格式为 `模块名::类名.方法名`；跨模块调用同时写明 `调用方模块 → 被调用方模块`（如 `app → account::AccountClient.getUserByUnionId`），保证链路上每一步都能读出所属模块。同一模块内部的连续调用可省略前缀。模块名以仓库实际模块名、服务名或 Proto 包名为准，无法确认时使用 `[模块待确认]`。
+
+## 核心节点突出
+
+链路树不追求面面俱到，用关键词短句突出三类重点，每类只带“一眼能看懂”的关键事实；事务、幂等等完整细节下沉到对应输出段：
+
+- 数据读写（🗄️）：表/集合名 + 条件关键词，如 `msg_vip_order 更新 {orderNo} → PAID`；事务与幂等结论放“数据与副作用”。
+- 跨服务与外部 API（🔗/💳）：完整 `模块::类.方法` + 调用方向 + 时效策略关键词，如 `app → account::AccountClient.getUserByUnionId（500ms 无重试）`。
+- 异常与出口（❌/⚠️）：具体错误码或结果关键词，如 `❌ 40001 参数错误`、`⚠️ 超时 → 保留本地状态`；不得只写“异常处理”。
+
+## 简洁原则
+
+- 链路树只回答“谁调用谁、关键条件、结果方向”；除此之外的信息一律下沉到下方各段，不进树。
+- 节点文本用关键词短语，不写完整句子；每个节点至多一个括号补充，放不下说明该下沉。
+- 完整 SQL、JSON 请求体、配置原文不进树；“数据与副作用”段也只写条件摘要。
+- 链路过宽时优先保证主干完整，长尾细节收进“关键证据”，不并列展开。
 
 ## Emoji 标记
 
@@ -42,15 +57,15 @@ description: 仅在用户明确指定 `$code-link-tree-analysis` 时使用。根
 
 默认按以下顺序交付：
 
-1. `Git 版本信息`（必填）：必须写出 `分析分支` 和 `基线分支`；必要时附当前提交和基线提交/共同祖先。缺少任一分支信息时，先报告无法确认，不输出完整链路树。
+1. `Git 版本信息`（必填）：必须写出 `分析分支` 和 `基线分支`；必要时附当前提交和基线提交/共同祖先。任一分支信息无法确认时，只输出该报告（写明 `待确认` 及需用户补充的信息），不输出后续段落。
 2. `分析范围`：入口、模块和追踪截止边界。
 3. `代码链路树`：使用等宽代码块和 `├─`、`└─`、`│`。
-4. `关键证据`：节点、模块、文件路径、行号和依据类型（源码/测试/配置/生成代码）。
+4. `关键证据`：表格形式，列为节点、模块、文件路径、行号和依据类型（源码/测试/配置/生成代码）。
 5. `数据与副作用`：表/集合、查询或更新条件、外部调用、事件及事务/幂等事实。
 6. `分支与出口`：成功、失败、异常、重试和降级。
 7. `待确认项`：只列影响结论的未知信息。
 
-事实分为：`已确认`（源码或测试直接支持）、`配置确认`（注册或配置支持）、`待确认`（缺少实现或运行时证据）。
+事实分为：`已确认`（源码、测试或可验证日志直接支持）、`配置确认`（注册或配置支持）、`待确认`（缺少实现或运行时证据）。
 
 ## 示例
 
@@ -58,35 +73,55 @@ description: 仅在用户明确指定 `$code-link-tree-analysis` 时使用。根
 Git 版本信息（必填）
 ├─ 分析分支：feature/vip-order-status
 ├─ 基线分支：origin/dev
-└─ 分析提交：abc1234；基线提交：def5678（可选）
-```
+└─ 分析提交：abc1234；基线提交：def5678
 
-```text
+分析范围：app 模块 vipOrder 查询入口，追踪到 MongoDB 与渠道查单，不含客户端
+
 /api/app/user/vipOrder/queryOrderStatus
 └─ 🚪 HTTP POST
-   ├─ 🔐 Authorization → JWT 解析 unionId，写入 RoutingContext
-   ├─ 请求体：{ orderNo }
-   │  └─ ❌ orderNo 为空 → 返回参数错误
-   └─ app::VipPaymentHandler.queryOrderStatus(orderNo)
-      ├─ 🔗 app → account：AccountClient.getUserByUnionId(unionId) → 获取 user.id
-      ├─ 🔗 app → message：message::Message.GetMsgVipOrderPayStatus(orderNo)
-      │  └─ message::MsgVipOrderService.getByOrderNo(orderNo)
-      │     └─ 🗄️ message::MsgVipOrderRepository.findByOrderNo(orderNo)
-      │        └─ MongoDB：msg_vip_order，条件：{ orderNo: orderNo }
-      ├─ 🔐 校验 order.userId == user.id
-      │  └─ ❌ 不相等 → 返回“订单不存在”
-      ├─ 🔄 未支付订单进入补偿查询
-      │  ├─ 💳 UNIONPAY/WECHAT 查单
-      │  ├─ SUCCESS → 🔄 ConfirmMsgVipOrderPaid → 更新订单 → 重新查询
-      │  └─ 失败或异常 → ⚠️ 保留本地状态
-      └─ 📤 转换字段，返回订单状态
+   ├─ 🔐 JWT 解析 unionId
+   ├─ 请求体 { orderNo }
+   │  └─ ❌ 40001 参数错误
+   └─ app::VipPaymentHandler.queryOrderStatus
+      ├─ 🔗 app → account::AccountClient.getUserByUnionId（500ms 无重试）→ [S1]
+      │  └─ ⚠️ 超时 → ❌ 503 用户服务不可用
+      ├─ 🔗 app → message::Message.GetMsgVipOrderPayStatus → [S2]
+      ├─ 🔐 订单归属校验（userId == user.id）
+      │  └─ ❌ 40402 订单不存在
+      ├─ 🔄 未支付 → 补偿查单
+      │  ├─ 💳 渠道查单（3s 重试 2 次）→ [S3]
+      │  │  └─ ⚠️ 最终失败 → 保留本地状态
+      │  ├─ SUCCESS → 🔄 ConfirmMsgVipOrderPaid
+      │  │  └─ 🗄️ msg_vip_order 更新 {orderNo} → PAID
+      │  └─ ❌ 渠道失败 → 🗄️ 更新 payStatus=FAILED
+      └─ 📤 返回订单状态
+
+[S1] app → account::AccountClient.getUserByUnionId → 🗄️ user，条件 { unionId }
+[S2] app → message::MsgVipOrderRepository.findByOrderNo → 🗄️ msg_vip_order，条件 { orderNo }
+[S3] 💳 渠道查单接口 POST /gateway/{channel}/orderQuery
 ```
 
-示例中的类名、路径和状态值只是格式示意；实际输出必须替换为仓库中定位到的内容。若实现未找到，写 `实现未在仓库中定位` 并放入“待确认项”。
+关键证据（`文件路径:行号` 只出现在这里）：
+
+| 节点 | 模块 | 证据 | 类型 |
+| --- | --- | --- | --- |
+| queryOrderStatus 主流程 | app | app/src/.../VipPaymentHandler.kt:88 | 已确认 |
+| account 调用超时 500ms | app | application.yml:58 | 配置确认 |
+| 渠道查单网关地址 | app | 未在仓库中定位 | 待确认 |
+
+数据与副作用（节选）：
+- 写：MongoDB msg_vip_order，条件 { orderNo }，set { payStatus, paidAt }；无显式事务，依赖单文档原子更新幂等。
+- 外部：渠道查单 API 按 orderNo 幂等；account 查询只读。
+
+分支与出口（节选）：成功直接返回；失败 40001/40402；account 超时 → 503；渠道查单异常 → 保留本地状态。
+
+待确认项：渠道查单封装位置。
+
+分析提交与基线提交为可选项，仅在需要定位版本差异时给出。示例中的类名、路径和状态值只是格式示意；实际输出必须替换为仓库中定位到的内容。若实现未找到，写 `实现未在仓库中定位` 并放入“待确认项”。
 
 ## 约束
 
-- `Git 版本信息`必须位于输出第一段；`分析分支`和`基线分支`是不可省略的必要项。无法确认基线时先停止链路分析并说明需要补充的分支信息。
+- `Git 版本信息`必须位于输出第一段；`分析分支`和`基线分支`是不可省略的必要项。无法确认基线时按分析流程第 1 步停止并询问，不得继续输出链路树。
 - 不把注释、类名相似或测试样例当作必经链路。
 - 不输出 Token、密钥或个人数据原值，只描述字段用途。
 - 不修改业务代码、不调用生产接口、不提交 Git，除非用户另有明确要求。
