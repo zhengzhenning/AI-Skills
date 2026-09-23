@@ -54,7 +54,7 @@ perf/k6/<suite>/
 
 ## k6 场景骨架（lib/scenario.js）
 
-场景命名固定：`smoke`、`baseline`、`ramp`（梯度容量）、`soak`、`mixed`。容量场景用 arrival-rate（吞吐不随系统变慢下降），浸泡用 constant-vus；所有请求包在 `group(sample.name)` 内，实现按接口拆分。
+场景命名固定：`smoke`、`baseline`、`ramp`（梯度容量）、`soak`、`mixed`。容量场景用开放式阶梯吞吐（ramping-arrival-rate，吞吐不随系统变慢下降），浸泡用封闭式定并发（constant-vus）；所有请求包在 `group(sample.name)` 内，实现按接口拆分。
 
 ```javascript
 import http from 'k6/http';
